@@ -6,11 +6,18 @@
 # resume_path: if given, restores from that checkpoint (pop, SP, RNG state, and rows accumulated
 # so far) and continues from checkpoint_gen + 1, instead of building a fresh founder population.
 # When resuming, rng_stream is ignored -- the checkpoint's restored RNG state IS the stream state.
+# founders_path: if given AND starting fresh (resume_path is NULL), saves a generation-0
+# checkpoint here immediately after founders are built, before the loop starts -- written once,
+# never overwritten by later rolling checkpoints at checkpoint_path. This exists because
+# AlphaSimR:::MaCS() (called by runMacs) is not reproducible from a seed even given identical
+# literal seeds (confirmed empirically, see dev/verify_macs_direct.R) -- so the founder population
+# for a given run can only be exactly reproduced by persisting the object itself, not by
+# regenerating it from the scenario config + seed later.
 
 library(AlphaSimR)
 
 run_replicate <- function(config, selection_fraction, replicate_id, rng_stream,
-                           checkpoint_path = NULL, resume_path = NULL) {
+                           checkpoint_path = NULL, resume_path = NULL, founders_path = NULL) {
   n_gen      <- config$generations$n_generations
   n_founders <- config$population$n_founders
   h2         <- config$qtl$heritability
@@ -36,6 +43,11 @@ run_replicate <- function(config, selection_fraction, replicate_id, rng_stream,
     start_gen <- 1L
     summary_rows <- vector("list", n_gen)
     locus_rows <- list()
+
+    if (!is.null(founders_path)) {
+      chips <- list(markers = 1L, validation = validation_chip)
+      save_checkpoint(founders_path, pop, SP, chips, gen = 0L, summary_rows, locus_rows)
+    }
   }
 
   if (start_gen <= n_gen) {

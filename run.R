@@ -32,11 +32,20 @@ dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
 checkpoint_dir <- file.path(data_dir, "checkpoints")
 dir.create(checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
 
+# Founder populations are persisted once, separately from the rolling checkpoint above -- see
+# R/sim_loop.R's founders_path comment for why (runMacs founder generation cannot be reproduced
+# from a seed alone). This is the current stand-in for a proper Provenance dataset (git SHA,
+# container digest, full parameter set) -- that table doesn't exist yet, but whatever it ends up
+# referencing for "how to reproduce this run's founders" must be this file, not the seed.
+founders_dir <- file.path(data_dir, "founders")
+dir.create(founders_dir, recursive = TRUE, showWarnings = FALSE)
+
 for (rep_id in seq_len(n_replicates)) {
   for (intensity_name in names(config$selection$intensities)) {
     frac <- config$selection$intensities[[intensity_name]]
     scen_tag <- paste0(scenario_id, "_", intensity_name)
     checkpoint_path <- file.path(checkpoint_dir, paste0(scen_tag, "_rep", rep_id, ".rds"))
+    founders_path <- file.path(founders_dir, paste0(scen_tag, "_rep", rep_id, ".rds"))
 
     # Re-running the same command after an interruption resumes automatically: a checkpoint left
     # on disk from a prior (partial) run of this exact scenario/replicate/intensity is picked up
@@ -47,7 +56,8 @@ for (rep_id in seq_len(n_replicates)) {
                                checkpoint_path = checkpoint_path, resume_path = checkpoint_path)
     } else {
       cat(sprintf("Replicate %d, selection=%s (fraction=%.2f)\n", rep_id, intensity_name, frac))
-      result <- run_replicate(config, frac, rep_id, streams[[rep_id]], checkpoint_path = checkpoint_path)
+      result <- run_replicate(config, frac, rep_id, streams[[rep_id]],
+                               checkpoint_path = checkpoint_path, founders_path = founders_path)
     }
 
     write_partitioned_parquet(result$summary, data_dir, "summary_metrics",
