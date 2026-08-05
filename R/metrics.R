@@ -26,3 +26,12 @@ allele_freq <- function(geno) {
 is_fixed <- function(freq, tol = 0) {
   freq <= tol | freq >= (1 - tol)
 }
+
+# Expected heterozygosity / gene diversity (2pq averaged across sites), the quantity the
+# H_t = H_0 * (1 - 1/(2*Ne))^t neutral decay theory predicts -- not observed (per-genotype)
+# heterozygosity, which conflates with within-population inbreeding.
+# ref: falconer1996qtg, lynch1998qtl
+heterozygosity <- function(geno) {
+  freq <- allele_freq(geno)
+  mean(2 * freq * (1 - freq))
+}
