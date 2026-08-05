@@ -1,0 +1,7 @@
+data/
+renv/library/
+renv/staging/
+.Rproj.user/
+.Rhistory
+.RData
+*.log

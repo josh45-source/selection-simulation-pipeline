@@ -1,0 +1,8 @@
+# Throwaway dev image for interactive verification during design -- NOT the production Dockerfile.
+# Rebuilt only when the package list changes; reused across many quick `docker run` checks.
+FROM rocker/r-ver:4.3.3
+
+ENV CRAN_REPO=https://packagemanager.posit.co/cran/__linux__/jammy/2024-06-01
+RUN R -e "options(timeout=600); install.packages(c('BH','Rcpp','RcppArmadillo','R6','Rdpack','AlphaSimR'), repos='${CRAN_REPO}')"
+
+WORKDIR /project

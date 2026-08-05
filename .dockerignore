@@ -1,0 +1,7 @@
+data/
+dev/
+renv/library/
+renv/staging/
+renv/local/
+*.log
+.git/

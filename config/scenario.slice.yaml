@@ -1,0 +1,52 @@
+# Small-scale smoke-test config for the "smallest end-to-end slice" -- sim -> Parquet -> DuckDB ->
+# plot. Same structure/keys as scenario.example.yaml, scaled down for fast iteration; not intended
+# for real science (too few generations/replicates for any of the validation tests to be meaningful).
+
+scenario_id: "slice"
+
+replicate:
+  n_replicates: 3
+  seed: 20260731
+
+population:
+  n_founders: 50
+  species: "generic_diploid"
+
+genome:
+  n_chr: 3
+  segsites_per_chr: 1050   # (100+400) qtl + (100+400) markers + 50 validation
+
+qtl:
+  n_active_per_chr: 100
+  n_reservoir_per_chr: 400
+  heritability: 0.3
+  mean: 0
+  var_add: 1
+  mutation_rate: 2.3e-4
+
+neutral_markers:
+  n_active_per_chr: 100
+  n_reservoir_per_chr: 400
+  mutation_rate: 2.3e-4
+
+validation_markers:
+  n_per_chr: 50
+  mutation_rate: 0
+
+selection:
+  scenario: "contrast"
+  intensities:
+    low: 0.2
+    high: 0.05
+
+generations:
+  n_generations: 60
+  checkpoint_every: 20
+
+sampling:
+  locus_cadence: 5
+  segregating_only: true
+
+output:
+  data_dir: "data/"
+  format: "parquet"

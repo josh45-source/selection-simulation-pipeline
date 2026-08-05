@@ -1,0 +1,85 @@
+scenario_id: "baseline"
+
+replicate:
+  n_replicates: 20
+  seed: 20260731            # base seed; per-replicate streams derived via L'Ecuyer-CMRG, see rng.R
+
+population:
+  n_founders: 100            # Ne ~ 100
+  species: "generic_diploid"
+
+genome:
+  n_chr: 10
+  # segsites_per_chr must equal qtl.total_per_chr + neutral_markers.total_per_chr + validation_markers.n_per_chr
+  # = (1000+4000) + (1000+4000) + 500 = 10500. AlphaSimR draws non-overlapping site sets for
+  # addTraitA / addSnpChip / addSnpChip(validation) from this pool, so undersizing it is a hard error
+  # at init (fail loud) rather than a silent overlap between QTL and marker sites.
+  segsites_per_chr: 10500
+
+qtl:
+  # "active" sites carry ~all of the founder population's additive variance (var_add, below).
+  # "reservoir" sites are designated QTL (so addTraitA assigns them effects at init) but drawn from
+  # oversampled coalescent output, so they start at near-boundary (~monomorphic) frequency in the
+  # founders. Recurrent mutation (editGenome, see mutation.R) acts on ALL 5000 designated sites per
+  # chromosome every generation, regardless of current frequency -- the reservoir's only role is to
+  # pre-assign an effect size so that when mutation happens to hit one of these sites, it doesn't need
+  # dynamic effect assignment. This is a large-but-finite-sites approximation to infinite-sites
+  # mutation: it delays exhaustion of standing variation, it does not remove the limit outright.
+  n_active_per_chr: 1000
+  n_reservoir_per_chr: 4000
+  heritability: 0.3
+  mean: 0
+  var_add: 1
+  # mutation_rate calibrated from a target mutational heritability, NOT a molecular per-bp rate --
+  # each "site" here is an effective locus abstracting many bp, so a genomic per-bp rate (~1e-8)
+  # under-counts mutational input by orders of magnitude and would still hit the Robertson limit.
+  #   Vp = Va/h^2 = 1/0.3 = 3.333 ;  Ve = Vp - Va = 2.333
+  #   target h2_m = Vm/Ve = 1e-3  =>  Vm = 2.333e-3 per generation
+  #   Vm = 2 * mu * n_loci * E[a^2], n_loci = (1000+4000)*10 = 50000,
+  #     E[a^2] ~= Va / n_active_total = 1 / 10000 = 1e-4  (approx: founder Va carried ~entirely by the active sites)
+  #   => mu = Vm / (2 * n_loci * E[a^2]) = 2.333e-3 / (2 * 50000 * 1e-4) ~= 2.3e-4
+  # This is a calibrated STARTING POINT, not a derived-exact value -- the pass/fail signal is whether
+  # additive variance empirically stabilizes at a non-trivial level over a few hundred generations
+  # (see validation/test_mutation_selection_balance.R), and mu should be retuned from that result.
+  # ref: houle1996mutational, lynch1998qtl
+  mutation_rate: 2.3e-4
+
+neutral_markers:
+  # Mutating marker panel: used for general allele-freq / fixation / F_ROH tracking under realistic
+  # ongoing mutation. Distinct from validation_markers below -- do NOT use this panel for the
+  # neutral heterozygosity-decay theory check, since mutation pushes it toward mutation-drift
+  # equilibrium rather than the pure-drift decay curve that test assumes.
+  n_active_per_chr: 1000
+  n_reservoir_per_chr: 4000
+  # AlphaSimR's mutate(pop, mutRate, simParam) applies ONE rate genome-wide per call -- there is no
+  # argument to target a specific chromosome/site subset (see R/mutation.R). Giving this panel a rate
+  # different from qtl.mutation_rate would require Bernoulli-thinning mutate()'s output down to a
+  # lower effective rate, which isn't worth the complexity for a rate with no calibration target in
+  # the first place. This panel therefore always mutates at qtl.mutation_rate; the field below is
+  # informational only and must track it.
+  # ref: houle1996mutational, lynch1998qtl
+  mutation_rate: 2.3e-4
+
+validation_markers:
+  # Pure-drift panel, mutation_rate fixed at 0. This is the ONLY panel test_neutral_heterozygosity.R
+  # may read from -- it exists so the H -> (1 - 1/(2*Ne))^gen theory check isn't confounded by mutation.
+  n_per_chr: 500
+  mutation_rate: 0
+
+selection:
+  scenario: "contrast"
+  intensities:
+    low: 0.2                 # proportion selected
+    high: 0.05
+
+generations:
+  n_generations: 2000
+  checkpoint_every: 50        # saveRDS(pop + .Random.seed) cadence
+
+sampling:
+  locus_cadence: 10           # record per-locus frequencies every Nth generation
+  segregating_only: true      # drop fixed/lost loci from the firehose table (qtl + neutral_markers + validation_markers)
+
+output:
+  data_dir: "data/"
+  format: "parquet"
