@@ -34,10 +34,22 @@ build_founder_pop <- function(config) {
     nInd = n_founders,
     nChr = n_chr,
     segSites = segsites_per_chr,
-    species = "GENERIC"
+    species = "GENERIC",
+    nThreads = 1L # separate from SimParam$nThreads below -- runMacs has its own thread count,
+                  # defaulting to auto-detected (multi-threaded), which breaks reproducibility
+                  # from a seed just as much as SimParam's did (see R/engine.R's other comment).
   )
 
   SP <- SimParam$new(founderPop)
+  # Force single-threaded execution. SimParam$nThreads defaults to all available cores via OpenMP,
+  # and AlphaSimR's own documentation examples all hide a `SP$nThreads = 1L` line -- an implicit
+  # acknowledgment that multi-threaded execution isn't bit-reproducible from a seed (thread
+  # scheduling order isn't deterministic). Confirmed empirically: with the default thread count,
+  # resuming from a checkpoint diverged substantially from an uninterrupted run despite correct RNG
+  # state restoration (see validation/test_resume_equals_uninterrupted.R); setting this to 1L
+  # before any AlphaSimR operations use SP fixed it. This is required for reproducibility in
+  # general, not just checkpoint/resume.
+  SP$nThreads <- 1L
   SP$addTraitA(qtl_total, mean = config$qtl$mean, var = config$qtl$var_add)
   SP$addSnpChip(marker_total)      # chip 1: mutating neutral markers
   SP$addSnpChip(validation_total) # chip 2: validation markers, kept at mu = 0

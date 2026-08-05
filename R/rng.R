@@ -27,5 +27,12 @@ save_rng_state <- function() {
 }
 
 restore_rng_state <- function(state) {
+  # RNGkind() must be set to L'Ecuyer-CMRG BEFORE assigning the saved .Random.seed vector. A fresh
+  # R session (e.g. the resume subprocess) starts on the default Mersenne-Twister generator;
+  # directly overwriting .Random.seed with a foreign-kind state vector doesn't reliably switch the
+  # session's RNG dispatch to match it, even though the bytes look right. Confirmed empirically --
+  # omitting this line caused resumed runs to silently diverge from the reference run despite the
+  # checkpoint file containing the "correct" state (see validation/test_resume_equals_uninterrupted.R).
+  RNGkind("L'Ecuyer-CMRG")
   assign(".Random.seed", state, envir = .GlobalEnv)
 }

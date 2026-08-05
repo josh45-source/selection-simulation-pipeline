@@ -13,6 +13,7 @@ source("R/engine.R")
 source("R/mutation.R")
 source("R/metrics.R")
 source("R/rng.R")
+source("R/checkpoint.R")
 source("R/io.R")
 source("R/sim_loop.R")
 
@@ -28,13 +29,26 @@ scenario_id <- config$scenario_id
 data_dir    <- config$output$data_dir
 dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
 
+checkpoint_dir <- file.path(data_dir, "checkpoints")
+dir.create(checkpoint_dir, recursive = TRUE, showWarnings = FALSE)
+
 for (rep_id in seq_len(n_replicates)) {
   for (intensity_name in names(config$selection$intensities)) {
     frac <- config$selection$intensities[[intensity_name]]
-    cat(sprintf("Replicate %d, selection=%s (fraction=%.2f)\n", rep_id, intensity_name, frac))
-
-    result <- run_replicate(config, frac, rep_id, streams[[rep_id]])
     scen_tag <- paste0(scenario_id, "_", intensity_name)
+    checkpoint_path <- file.path(checkpoint_dir, paste0(scen_tag, "_rep", rep_id, ".rds"))
+
+    # Re-running the same command after an interruption resumes automatically: a checkpoint left
+    # on disk from a prior (partial) run of this exact scenario/replicate/intensity is picked up
+    # rather than restarting from generation 1.
+    if (file.exists(checkpoint_path)) {
+      cat(sprintf("Replicate %d, selection=%s: resuming from checkpoint\n", rep_id, intensity_name))
+      result <- run_replicate(config, frac, rep_id, rng_stream = NULL,
+                               checkpoint_path = checkpoint_path, resume_path = checkpoint_path)
+    } else {
+      cat(sprintf("Replicate %d, selection=%s (fraction=%.2f)\n", rep_id, intensity_name, frac))
+      result <- run_replicate(config, frac, rep_id, streams[[rep_id]], checkpoint_path = checkpoint_path)
+    }
 
     write_partitioned_parquet(result$summary, data_dir, "summary_metrics",
                                scenario_id = scen_tag, replicate_id = rep_id)
