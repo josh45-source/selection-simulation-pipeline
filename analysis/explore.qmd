@@ -1,0 +1,155 @@
+---
+title: "Selection Simulation: Exploratory Dashboard"
+subtitle: "Allele fixation and inbreeding depression under long-term selection"
+format:
+  html:
+    toc: true
+    theme: cosmo
+    embed-resources: true
+bibliography: ../references.bib
+---
+
+```{r setup}
+#| include: false
+library(arrow)
+library(duckdb)
+library(DBI)
+library(dplyr)
+library(ggplot2)
+library(knitr) # not called directly below, but Quarto's R-chunk execution engine needs it
+                # installed; renv's implicit dependency scan only picks up an explicit library()
+                # call, not Quarto's own internal use of it (see R/io.R for the same pattern with
+                # dplyr and arrow::write_dataset()).
+
+data_dir <- Sys.getenv("SELECTION_DATA_DIR", unset = "../data")
+con <- dbConnect(duckdb::duckdb())
+
+pal <- c(low = "#2a78d6", high = "#eb6834")
+theme_dashboard <- theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "#e1e0d9"),
+    axis.line = element_line(color = "#c3c2b7"),
+    axis.text = element_text(color = "#898781"),
+    legend.position = "top"
+  )
+```
+
+## Introduction
+
+This dashboard reads directly from the Parquet lake produced by `run.R`, queried through
+DuckDB, and shows what the current run's `data/` directory contains: additive genetic variance
+over time and allele fixation progress, both reported as distributions across replicates rather
+than single trajectories, since a lone run of a stochastic process is close to uninformative on
+its own. The underlying engine is AlphaSimR [@gaynor2021alphasimr], run over long horizons with
+recurrent mutation, because a fixed founder haplotype set exhausts standing variation and
+selection response flatlines as a modeling artifact rather than a biological one
+[@robertson1960limits; @hill1986recurrent].
+
+## Selection response across replicates
+
+```{r va-query}
+va_by_rep <- dbGetQuery(con, sprintf(
+  "SELECT scenario_id, replicate_id, generation, va
+   FROM read_parquet('%s/summary_metrics/**/*.parquet', hive_partitioning=1)
+   ORDER BY scenario_id, replicate_id, generation",
+  data_dir
+))
+
+va_by_rep$intensity <- sub("^.*_(low|high)$", "\\1", va_by_rep$scenario_id)
+
+va_bands <- va_by_rep |>
+  group_by(intensity, generation) |>
+  summarise(mean_va = mean(va), min_va = min(va), max_va = max(va), .groups = "drop")
+```
+
+```{r va-plot}
+#| fig-cap: "Mean additive genetic variance per generation (line), with the min-max range across replicates shown as a band. Each replicate carries its own independently generated founder population and RNG stream (see Limitations)."
+ggplot(va_bands, aes(x = generation, color = intensity, fill = intensity)) +
+  geom_ribbon(aes(ymin = min_va, ymax = max_va), alpha = 0.2, color = NA) +
+  geom_line(aes(y = mean_va), linewidth = 0.8) +
+  scale_color_manual(values = pal, name = "Selection intensity") +
+  scale_fill_manual(values = pal, name = "Selection intensity") +
+  labs(x = "Generation", y = "Additive genetic variance (mean, min-max band)") +
+  theme_dashboard
+```
+
+Variance depletes fastest under high selection intensity, as expected: fewer parents contribute
+to each generation, so both selection and drift consume standing variation more quickly. Recurrent
+mutation, calibrated from a target mutational heritability rather than a molecular per-bp rate
+[@houle1996mutational; @lynch1998qtl], keeps a non-trivial trickle of new variance flowing in
+rather than letting the population run to complete fixation.
+
+## Fixation progress across replicates
+
+```{r fixation-query}
+seg_by_rep <- dbGetQuery(con, sprintf(
+  "SELECT scenario_id, replicate_id, generation, COUNT(DISTINCT site_id) AS n_segregating
+   FROM read_parquet('%s/per_locus_freq/**/*.parquet', hive_partitioning=1)
+   GROUP BY scenario_id, replicate_id, generation
+   ORDER BY scenario_id, replicate_id, generation",
+  data_dir
+))
+seg_by_rep$intensity <- sub("^.*_(low|high)$", "\\1", seg_by_rep$scenario_id)
+
+seg_bands <- seg_by_rep |>
+  group_by(intensity, generation) |>
+  summarise(mean_n = mean(n_segregating), min_n = min(n_segregating),
+            max_n = max(n_segregating), .groups = "drop")
+```
+
+```{r fixation-plot}
+#| fig-cap: "Count of still-segregating QTL sites per generation (mean line, min-max band across replicates). A falling count reflects loci reaching fixation; sites already fixed are dropped from the sampled table by design (segregating_only in the scenario config), so this tracks remaining standing variation directly rather than through variance alone."
+ggplot(seg_bands, aes(x = generation, color = intensity, fill = intensity)) +
+  geom_ribbon(aes(ymin = min_n, ymax = max_n), alpha = 0.2, color = NA) +
+  geom_line(aes(y = mean_n), linewidth = 0.8) +
+  scale_color_manual(values = pal, name = "Selection intensity") +
+  scale_fill_manual(values = pal, name = "Selection intensity") +
+  labs(x = "Generation", y = "Segregating QTL sites (mean, min-max band)") +
+  theme_dashboard
+```
+
+```{r cleanup}
+#| include: false
+dbDisconnect(con, shutdown = TRUE)
+```
+
+## Validation summary
+
+The checks below run as a separate suite (`validation/`), not as part of this dashboard's own
+render, since re-running a multi-replicate validation suite on every dashboard build would be
+slow and duplicate work already done. Numbers are from the most recent run of each test.
+
+| Check | Result | Reference |
+|---|---|---|
+| Neutral heterozygosity decay | Realized $N_e$ tracks nominal under no selection (104 vs. 100); drops sharply under selection (14 vs. 100 nominal), reflecting that only a fraction of individuals contribute each generation | [@falconer1996qtg; @lynch1998qtl] |
+| Breeder's equation ($R = h^2 S$) | Holds early (2.5% cumulative gap by generation 5); overpredicts increasingly as additive variance depletes (477% cumulative gap by generation 100), tracking the fall in realized $h^2$ from 0.24 to 0.02 | [@falconer1996qtg] |
+| $F_{ROH}$ vs. pedigree $F$ | Correlated (r = 0.34-0.37) but not identical under 40 generations of intense inbreeding; $F_{ROH}$ runs consistently above pedigree $F$ by realized recombination variance | [@curik2014roh; @keller2011roh; @kardos2015genomic] |
+| Inbreeding depression | Directional-dominance architecture shows significant depression (p < 0.0001, about -1.2 phenotypic SD per unit $F$); a purely additive trait shows none, confirming the mechanism rather than assuming it | [@doekes2021meta] |
+
+The depression check used a directional-dominance trait architecture built specifically for that
+test, not the additive-only architecture this dashboard's own data was generated under; see
+Limitations.
+
+## Limitations
+
+- **Founder populations are not reproducible from a seed.** AlphaSimR's compiled coalescent
+  function is not deterministic even given identical literal seeds. Everything *after* founders
+  exist (mutation, selection, crossing, checkpoint and resume) is reproducible; the founder
+  population itself is not, and is persisted as an artifact per replicate specifically because of
+  this. Reproducing a specific run's founders requires that file, not its seed.
+- **Inbreeding depression requires a separate trait architecture.** The scenarios behind this
+  dashboard use a purely additive trait, which cannot show mean inbreeding depression by
+  construction. The depression validation test builds its own directional-dominance population
+  (`SP$addTraitAD`) to demonstrate the mechanism; extending dominance to the main pipeline is a
+  separate decision, not yet made.
+- **The Doekes comparison is qualitative, not literal.** This trait has an arbitrary mean-zero
+  scale, not a natural biological unit like birth weight, so a percent-of-mean comparison to the
+  Doekes et al. benchmark [@doekes2021meta] is not well defined; the validation test reports a
+  phenotypic-standard-deviation-based slope instead, which is directionally comparable but not a
+  claim of numeric equivalence.
+- **MoBPS remains the fallback** if AlphaSimR's founder non-determinism or its other constraints
+  become limiting for the recurrent-mutation and OCS features this project may need later
+  [@pook2020mobps].
+
+## References

@@ -5,3 +5,6 @@ renv/staging/
 .Rhistory
 .RData
 *.log
+analysis/*.html
+analysis/*_files/
+analysis/.quarto/

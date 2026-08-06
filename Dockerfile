@@ -36,9 +36,19 @@ RUN R -e "renv::restore()"
 # ---- runtime stage: slim image, non-root ----
 FROM rocker/r-ver:4.3.3 AS runtime
 
+# Quarto CLI (for analysis/explore.qmd) is pinned by version + verified download URL, the same
+# reproducibility standard as everything else in this image -- not "curl the latest installer".
+ENV QUARTO_VERSION=1.10.18
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libcurl4 libssl3 libxml2 libfontconfig1 libharfbuzz0b libfribidi0 \
         libfreetype6 libpng16-16 libtiff5 libjpeg-turbo8 \
+        curl ca-certificates \
+    && curl -fsSL -o /tmp/quarto.deb \
+        "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" \
+    && apt-get install -y --no-install-recommends /tmp/quarto.deb \
+    && rm /tmp/quarto.deb \
+    && apt-get purge -y curl && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 1000 sim
 
