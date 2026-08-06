@@ -114,22 +114,71 @@ ggplot(seg_bands, aes(x = generation, color = intensity, fill = intensity)) +
 dbDisconnect(con, shutdown = TRUE)
 ```
 
-## Validation summary
+## Validation
 
-The checks below run as a separate suite (`validation/`), not as part of this dashboard's own
-render, since re-running a multi-replicate validation suite on every dashboard build would be
-slow and duplicate work already done. Numbers are from the most recent run of each test.
+The four checks below run as a separate suite (`validation/`), not as part of this dashboard's
+own render: re-running a multi-replicate validation suite on every dashboard build would be slow
+and would duplicate work already done. What follows is not a pass/fail summary; it is the actual
+output each test produced on its most recent run, reported in full alongside the production
+metrics above so the proof sits next to the result it backs up. See `METHODS.md` for the
+derivations and reasoning behind these numbers.
 
-| Check | Result | Reference |
+### Neutral heterozygosity decay [@falconer1996qtg; @lynch1998qtl]
+
+Log-linear decay fit to the $\mu = 0$ validation-marker panel, five replicates per condition,
+nominal $N_e = 100$:
+
+| Condition | Implied $N_e$ (mean) | Range across replicates |
 |---|---|---|
-| Neutral heterozygosity decay | Realized $N_e$ tracks nominal under no selection (104 vs. 100); drops sharply under selection (14 vs. 100 nominal), reflecting that only a fraction of individuals contribute each generation | [@falconer1996qtg; @lynch1998qtl] |
-| Breeder's equation ($R = h^2 S$) | Holds early (2.5% cumulative gap by generation 5); overpredicts increasingly as additive variance depletes (477% cumulative gap by generation 100), tracking the fall in realized $h^2$ from 0.24 to 0.02 | [@falconer1996qtg] |
-| $F_{ROH}$ vs. pedigree $F$ | Correlated (r = 0.34-0.37) but not identical under 40 generations of intense inbreeding; $F_{ROH}$ runs consistently above pedigree $F$ by realized recombination variance | [@curik2014roh; @keller2011roh; @kardos2015genomic] |
-| Inbreeding depression | Directional-dominance architecture shows significant depression (p < 0.0001, about -1.2 phenotypic SD per unit $F$); a purely additive trait shows none, confirming the mechanism rather than assuming it | [@doekes2021meta] |
+| No selection | 104.0 | 89.4 to 125.0 |
+| Low-intensity selection | 14.1 | 9.9 to 17.6 |
 
-The depression check used a directional-dominance trait architecture built specifically for that
-test, not the additive-only architecture this dashboard's own data was generated under; see
-Limitations.
+### Breeder's equation, $R = h^2 S$ [@falconer1996qtg]
+
+Cumulative gap between predicted and actual response, and realized heritability ($V_A / V_P$)
+against the nominal 0.300 the prediction used throughout:
+
+| Generation | Cumulative predicted-vs-actual gap | Realized $h^2$ |
+|---|---|---|
+| 5 | 2.5% | 0.24 (early mean) |
+| 10 | 20.6% | |
+| 25 | 94.1% | |
+| 50 | 217.4% | |
+| 100 | 476.5% | 0.02 (late mean) |
+
+### $F_{ROH}$ against pedigree $F$ [@curik2014roh; @keller2011roh; @kardos2015genomic]
+
+Founder population of 40, 8 parents per generation, 40 generations of deliberately intense
+inbreeding:
+
+| Generation | Mean $F_{ROH}$ | Mean pedigree $F$ |
+|---|---|---|
+| 5 | 0.27 | 0.22 |
+| 40 | 0.94 | 0.90 |
+
+Final-generation correlation across runs: $r \approx 0.34$ to $0.37$. Mean
+$|F_{ROH} - F_{\text{pedigree}}|$: 0.04 to 0.07.
+
+### Inbreeding depression [@doekes2021meta]
+
+Ten replicates pooled per condition (12,500 observations), regressing phenotype on pedigree $F$
+with a replicate-by-generation cohort fixed effect to remove genetic drift's own correlation with
+generation number:
+
+| Architecture | Slope | SE | $p$ | Slope in phenotypic SD per unit $F$ |
+|---|---|---|---|---|
+| Purely additive | 0.472 | 0.372 | 0.205 | 0.22 (not significant) |
+| Directional dominance (mean dominance degree 0.6) | -2.369 | 0.364 | < 0.0001 | -1.23 |
+
+The non-significant additive slope is not a weak result to explain away; it is the expected null,
+since a purely additive trait cannot show mean inbreeding depression by construction, and
+confirming that null was as much the point of this test as the dominance result was. The
+directional-dominance architecture used here is not the one the scenario behind this dashboard's
+own charts was generated under; extending it to the main pipeline is a separate decision, not yet
+made. The comparison to the Doekes et al. benchmark of roughly 0.13% decline per 1% rise in $F$ is
+qualitative: this trait has an arbitrary mean-zero scale, not a natural biological unit, so a
+percent-of-mean comparison is not well defined, and the standard-deviation framing above is
+reported instead of a claim of numeric equivalence.
 
 ## Limitations
 
