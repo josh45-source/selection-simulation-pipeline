@@ -1,12 +1,9 @@
-# Metrics for the smallest end-to-end slice: additive genetic variance and per-locus allele
-# frequency/fixation. F_ROH and inbreeding-depression regression are layered on in a later step
-# once the slice (sim -> Parquet -> DuckDB -> plot) is proven end-to-end.
+# Per-generation metrics: additive genetic variance and per-locus allele frequency/fixation.
 #
-# TODO(cite): when F_ROH is implemented here (via detectRUNS), cite curik2014roh, keller2011roh
-# for ROH as the genomic inbreeding estimator, and kardos2015genomic, doekes2019recent for using
-# genomic/ROH-based F over pedigree-only F. If a GRM-based F is added, cite vanraden2008grm.
-# If the inbreeding-depression regression is added, cite doekes2021meta as the calibration
-# benchmark (~0.13% trait decline per 1% rise in F).
+# F_ROH lives in R/froh.R (detectRUNS-based) and the inbreeding-depression regression in
+# validation/test_inbreeding_depression.R, rather than here. Their citations are wired into
+# analysis/explore.qmd against references.bib: curik2014roh, keller2011roh, and kardos2015genomic
+# for ROH-based genomic inbreeding, doekes2021meta as the inbreeding-depression benchmark.
 
 library(AlphaSimR)
 

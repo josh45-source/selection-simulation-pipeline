@@ -138,16 +138,35 @@ record.
 
 ## Limitations
 
-**Founder populations are not reproducible from a seed.** `AlphaSimR:::MaCS()`, the compiled
-coalescent function that `runMacs()` calls to build founder haplotypes, does not produce
-identical output across calls given identical literal seeds. This was confirmed directly,
-bypassing R's own RNG entirely (`dev/verify_macs_direct.R`), and it is a limitation in AlphaSimR's
-compiled code, not something fixable from this project. It is also undocumented: AlphaSimR's
-changelog shows the maintainers forced single-threading in their own doc examples (v1.5.1), which
-independently confirms that multi-threaded execution isn't reproducible, but nowhere describes
-fixing MaCS's seed handling itself. Everything *after* founders exist, including mutation,
-selection, crossing, and checkpoint/resume, is reproducible and proven bit-identical. The founder
-population itself is not. State this plainly: **the qualitative pattern of a run is robust, but
+**Founder populations are not reproducible from a seed on the AlphaSimR release we pin.**
+`AlphaSimR:::MaCS()`, the compiled coalescent function that `runMacs()` calls to build founder
+haplotypes, does not produce identical output across calls given identical literal seeds. This was
+confirmed directly, bypassing R's own RNG entirely (`dev/verify_macs_direct.R`), and it is a
+limitation in AlphaSimR's compiled code, not something fixable from this project.
+
+This is a known, documented upstream bug, and it now has an upstream fix that has not yet reached
+CRAN. It was reported as [AlphaSimR issue #228](https://github.com/gaynorr/AlphaSimR/issues/228)
+(`runMacs()` not reproducible under `set.seed()`) and diagnosed in [issue
+#266](https://github.com/gaynorr/AlphaSimR/issues/266), filed by AlphaSimR co-author Gregor
+Gorjanc, who identified the root cause: AlphaSimR's C++ code draws from Armadillo's RNG, which
+carries its own state entirely separate from R's, so R's `set.seed()` never reaches it. The fix is
+[PR #265](https://github.com/gaynorr/AlphaSimR/pull/265) ("Reproducible RNG (MaCS and other
+parts)"), merged into the `devel` branch on 2026-04-03.
+
+That fix is not in any CRAN release. We verified all three states directly with
+`dev/verify_macs_direct_current_version.R`: the `devel` branch (2.1.0.9004, which contains PR
+#265) is now fully reproducible, both through the low-level `MaCS()` call and through issue #228's
+own `set.seed()` + `runMacs()` repro, single- and multi-threaded, with a negative control
+confirming different seeds still diverge. Both released versions still fail: the 1.5.3 release
+this project pins in `renv.lock`, and the current CRAN release 2.1.0 (published 2025-11-08), whose
+code is the AlphaSimR `master` branch — `master` predates the `devel` merge and does not contain
+PR #265. So upgrading the pin to current CRAN would *not* fix this; the workaround below stays
+necessary until the fix ships in a CRAN release, at which point founder persistence becomes a
+convenience rather than a requirement.
+
+Everything *after* founders exist, including mutation, selection, crossing, and
+checkpoint/resume, is reproducible and proven bit-identical. The founder population itself is
+not. State this plainly: **the qualitative pattern of a run is robust, but
 the exact numbers for a specific run come from the persisted founder object, not the seed.** A
 scenario config and a seed will get you a run with the same statistical character, not the same
 run. `run.R` persists each replicate's founder population once, to

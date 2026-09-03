@@ -186,7 +186,9 @@ reported instead of a claim of numeric equivalence.
   function is not deterministic even given identical literal seeds. Everything *after* founders
   exist (mutation, selection, crossing, checkpoint and resume) is reproducible; the founder
   population itself is not, and is persisted as an artifact per replicate specifically because of
-  this. Reproducing a specific run's founders requires that file, not its seed.
+  this. Reproducing a specific run's founders requires that file, not its seed. This is a known
+  upstream bug (AlphaSimR issues #228 and #266) fixed by PR #265 on the `devel` branch, but the
+  fix is not in any CRAN release, so it still affects the version pinned here; see README.md.
 - **Inbreeding depression requires a separate trait architecture.** The scenarios behind this
   dashboard use a purely additive trait, which cannot show mean inbreeding depression by
   construction. The depression validation test builds its own directional-dominance population

@@ -83,14 +83,33 @@ genuinely separate Rscript process
 reproduces an uninterrupted one bit-for-bit, verified on the actual genotype matrices and the
 full recorded output series, not just summary statistics.
 
-**Founder generation is not reproducible from a seed.** `AlphaSimR:::MaCS()`, the compiled
-coalescent function `runMacs()` calls, does not produce identical output across calls given
-identical literal seeds, confirmed directly and bypassing R's own RNG entirely
-(`dev/verify_macs_direct.R`). This holds even single-threaded, so it is not the same issue as the
-threading problem above; it is a separate, apparently undocumented non-determinism in AlphaSimR's
-compiled code. The practical consequence: a scenario config and a seed reproduce the statistical
-character of a run, everything after founders exist, not the specific run. `run.R` persists each
-replicate's founder population once, immediately after it is built, to
+**Founder generation is not reproducible from a seed on the AlphaSimR release we pin.**
+`AlphaSimR:::MaCS()`, the compiled coalescent function `runMacs()` calls, does not produce
+identical output across calls given identical literal seeds, confirmed directly and bypassing R's
+own RNG entirely (`dev/verify_macs_direct.R`). This holds even single-threaded, so it is not the
+same issue as the threading problem above; it is a separate defect in AlphaSimR's compiled code.
+
+It is a documented upstream bug with an upstream fix that has not yet reached CRAN. Reported as
+[issue #228](https://github.com/gaynorr/AlphaSimR/issues/228) and diagnosed in [issue
+#266](https://github.com/gaynorr/AlphaSimR/issues/266) by AlphaSimR co-author Gregor Gorjanc: the
+compiled code draws from Armadillo's RNG, whose state is separate from R's, so `set.seed()` never
+reaches it. [PR #265](https://github.com/gaynorr/AlphaSimR/pull/265) fixes this by routing seeds
+through R's RNG (`runMacs()` now draws them with `sample.int()` and passes them numerically, where
+1.5.3 built them independently), and was merged to the `devel` branch on 2026-04-03.
+
+We verified the fix rather than assuming it from the thread
+(`dev/verify_macs_direct_current_version.R`). On `devel` (2.1.0.9004, containing PR #265) both the
+direct `MaCS()` call and issue #228's own `set.seed()` + `runMacs()` repro are reproducible,
+single- and multi-threaded, with a negative control confirming distinct seeds still diverge. Both
+released versions still fail the same tests: the pinned 1.5.3, and current CRAN 2.1.0, which is
+built from `master` and predates the `devel` merge. Upgrading the pin to current CRAN would
+therefore not resolve it, and the founder-persistence workaround remains necessary until the fix
+appears in a CRAN release.
+
+The practical consequence, for as long as we pin an affected release: a scenario config and a
+seed reproduce the statistical character of a run, everything after founders exist, not the
+specific run. `run.R` persists each replicate's founder population once, immediately after it is
+built, to
 `data/founders/<scenario>_rep<n>.rds`, specifically so a given run's founders can be recovered
 exactly when needed. State this plainly, since it is easy to miss if only the validation suite's
 PASS output is read: **the pattern is robust across runs; the exact numbers for a specific run

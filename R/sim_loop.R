@@ -12,7 +12,10 @@
 # AlphaSimR:::MaCS() (called by runMacs) is not reproducible from a seed even given identical
 # literal seeds (confirmed empirically, see dev/verify_macs_direct.R) -- so the founder population
 # for a given run can only be exactly reproduced by persisting the object itself, not by
-# regenerating it from the scenario config + seed later.
+# regenerating it from the scenario config + seed later. This is upstream AlphaSimR issues #228
+# and #266, fixed by PR #265 on the devel branch but not in any CRAN release, so it still affects
+# the 1.5.3 we pin; see README.md Limitations and dev/verify_macs_direct_current_version.R. When
+# the fix reaches CRAN and the pin moves past it, this persistence becomes belt-and-braces.
 
 library(AlphaSimR)
 
