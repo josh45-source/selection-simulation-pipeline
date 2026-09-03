@@ -113,6 +113,7 @@ record.
 
 ```
 .
+├── LICENSE                     # MIT
 ├── Dockerfile                  # multi-stage build; renv::restore(), then a slim runtime image
 ├── renv.lock                   # pinned package versions, the source of truth for reproducibility
 ├── references.bib              # bibliography, cited from code comments and the dashboard
@@ -201,3 +202,23 @@ contribution selection features are added later.
 **MoBPS remains the documented fallback**, per the original design brief, if AlphaSimR's founder
 non-determinism or its other constraints become limiting, particularly for recurrent mutation and
 optimal contribution selection.
+
+## How to cite
+
+If you use this pipeline or its results, please cite it as:
+
+> Joshua, A. J. (2026). *Selection Simulation Pipeline*: a reproducible AlphaSimR pipeline for
+> allele fixation and inbreeding depression under long-term selection. Software.
+> https://github.com/josh45-source/selection-simulation-pipeline
+
+A DOI will be minted for a tagged release and added here; once it exists, cite the DOI in
+preference to the repository URL. For the exact state of a run, cite the commit SHA you ran, not
+just the repository: `renv.lock` and the container pin the software, but the git SHA pins the
+code, and per Limitations the founder `.rds` files pin a specific run's founders.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Copyright (c) 2026 Ayo Joash Joshua.
+
+The license covers the code in this repository. It does not extend to the packages it depends on,
+which carry their own licenses, or to the works cited in `references.bib`.
