@@ -235,7 +235,7 @@ Limitations section says so directly.
 
 If you use this pipeline or its results, please cite it as:
 
-> Joshua, A. J. (2026). *Selection Simulation Pipeline*: a reproducible AlphaSimR pipeline for
+> Ayo, Joash J. (2026). *Selection Simulation Pipeline*: a reproducible AlphaSimR pipeline for
 > allele fixation and inbreeding depression under long-term selection. Software.
 > https://github.com/josh45-source/selection-simulation-pipeline
 
