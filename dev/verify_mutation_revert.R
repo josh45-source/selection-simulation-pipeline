@@ -1,3 +1,18 @@
+# What this script proves, and what it cannot see.
+#
+# It confirms the two things the pipeline depends on: mutate() does place mutations on chip 1, and
+# the snapshot/restore brings chip 2 back bit-identical so the validation panel is genuinely held
+# at mu = 0. Both still hold.
+#
+# It CANNOT detect partial freezing of chip 1, and the PASS below should not be read as proving
+# its absence. The test only asks whether chip 1 changed *somewhere* (sum(...) > 0), so it passes
+# whether the restore rolls back none of chip 1's mutations or most of them. AlphaSimR draws the
+# two chips independently from the same pool of non-QTL sites, so they overlap, and restoring
+# chip 2 does silently revert mutations at the sites they share -- about 8% of chip 1's mutations
+# at the slice config's rate. Detecting that requires comparing chip 1 immediately after mutate()
+# against chip 1 after the restore, which this script does not do. See R/engine.R and R/mutation.R
+# for the measurement and for why it is documented rather than fixed.
+
 library(AlphaSimR)
 
 set.seed(42)
