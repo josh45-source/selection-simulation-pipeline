@@ -16,6 +16,24 @@
 # not just a second function call in this process -- otherwise leftover in-memory state (the
 # global .Random.seed, loaded objects) could mask a checkpoint that doesn't actually capture
 # everything it needs to.
+#
+# RUN THIS THE DOCUMENTED WAY -- against the image's own baked-in code and library:
+#
+#   docker run --rm --user "$(id -u):$(id -g)" selection:latest validation/test_resume_equals_uninterrupted.R
+#
+# Do NOT run it from a mounted host path. This test is the one script in the suite that is
+# sensitive to how it is invoked, because of the system2("Rscript", ...) call below: that
+# subprocess is launched WITHOUT --vanilla, so it reads whatever .Rprofile sits in its working
+# directory. Inside the image that is the intended one. With the repository mounted over the
+# working directory instead, the subprocess picks up the repo's .Rprofile, activates renv against
+# the HOST renv/library rather than the image's, and dies before writing result.rds -- surfacing
+# here as a confusing triple failure (non-zero exit status, missing result.rds, then a readRDS
+# connection error) that looks like a checkpoint bug and is not one. The host library is also not
+# guaranteed to match renv.lock. If you need to test modified sources, either rebuild the image or
+# overlay only the source directories, leaving the image's /project/renv in place:
+#
+#   docker run --rm -v "$PWD/R:/project/R:ro" -v "$PWD/validation:/project/validation:ro" \
+#     selection:latest validation/test_resume_equals_uninterrupted.R
 
 library(testthat)
 

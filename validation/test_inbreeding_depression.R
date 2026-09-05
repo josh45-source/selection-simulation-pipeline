@@ -2,6 +2,15 @@
 # Doekes et al. 2021 meta-analysis benchmark of ~0.13% trait decline per 1% rise in F.
 # ref: doekes2021meta
 #
+# EXPECTED FLAKINESS, not a defect. The pure-additive arm is a negative control asserting a
+# NON-significant slope (p > 0.05), so at alpha = 0.05 it fails roughly 5% of the time even when
+# the mechanism is exactly right -- that is what a 5% false-positive rate means. No seed pins
+# this: founder generation is not reproducible from a seed on the AlphaSimR release we pin (see
+# README Limitations), so every run draws different founders and the p-value moves with them.
+# A single failure of the additive arm is therefore not evidence of a broken test; re-run it.
+# What WOULD be a real failure is the additive arm failing repeatedly across runs, or the
+# dominance arm losing significance (it clears the threshold by a wide margin -- p ~ 1e-4).
+#
 # A purely additive trait (SP$addTraitA, used everywhere else in this repo) CANNOT show
 # inbreeding depression in the mean by construction -- depression requires directional dominance
 # (the higher-value allele tends to be dominant, so increasing homozygosity from inbreeding
