@@ -53,7 +53,7 @@ test_that("breeder's equation holds early and its overprediction grows as Va dep
 
     mean_pheno_before <- mean(pop@pheno[, 1])
     mean_gv_before <- meanG(pop)
-    va <- compute_va(pop)
+    va <- compute_va(pop, SP)
     vp <- var(pop@pheno[, 1])
 
     n_parents <- max(1, round(n_founders * 0.2))
