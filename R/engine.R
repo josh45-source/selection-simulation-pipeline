@@ -5,7 +5,7 @@
 library(AlphaSimR)
 
 # Builds the founder population and SimParam from a parsed scenario config (see
-# config/scenario.example.yaml). Three non-overlapping site classes are designated at init:
+# config/scenario.example.yaml). Three site classes are designated at init:
 #   - qtl: drives the trait; active + reservoir sites both get effects assigned by addTraitA,
 #     since AlphaSimR only assigns effects to sites designated at init (see scenario yaml comments
 #     on the active/reservoir split).
@@ -13,6 +13,26 @@ library(AlphaSimR)
 #   - validation_markers (SNP chip 2): held at mu = 0 by R/mutation.R; used only for the
 #     neutral heterozygosity-decay validation test and as the F_ROH panel, so it must stay clean
 #     of mutation-induced homozygosity artifacts.
+#
+# These classes are NOT mutually exclusive, and an earlier version of this comment wrongly said
+# they were. QTL are excluded from SNP eligibility, so neither chip overlaps the QTL -- that part
+# holds. But addSnpChip() "randomly assigns eligible SNPs to a SNP chip" independently on each
+# call, and nothing here calls SimParam$restrSegSites(overlap=), so the two chips are each drawn
+# from the same pool of non-QTL sites and do overlap heavily. Measured on scenario.slice.yaml:
+# 134 of chip 2's 150 sites are also on chip 1. That is close to forced by the site budget --
+# QTL take 500 of 1050 sites per chromosome and chip 1 then takes 500 of the 550 that remain.
+#
+# The segsites_per_chr check below therefore budgets for a partition that AlphaSimR does not
+# actually produce. It is kept because it still guarantees enough segregating sites exist for
+# every class to be drawn, but it should not be read as enforcing disjointness.
+#
+# This is documented rather than fixed because it affects no reported metric. Chip 1 is never
+# used for a scientific result -- it appears only as a bit-comparison target in
+# validation/test_resume_equals_uninterrupted.R and validation/resume_phase2_subprocess.R.
+# Everything reported comes from the QTL (additive variance, response, fixation) or from chip 2
+# (heterozygosity decay, F_ROH), and chip 2 is correctly neutral and correctly frozen. Fixing the
+# allocation via restrSegSites(excludeSnp=) or addSnpChipByName() would re-sample every site and
+# change every published number, for no gain in any result that is actually reported.
 build_founder_pop <- function(config) {
   n_founders <- config$population$n_founders
   n_chr <- config$genome$n_chr
