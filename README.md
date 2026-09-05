@@ -203,6 +203,21 @@ contribution selection features are added later.
 non-determinism or its other constraints become limiting, particularly for recurrent mutation and
 optimal contribution selection.
 
+## AI-assisted development
+
+This project was designed and directed by Ayo Joash Joshua, who set the research question, the
+simulation design, the validation strategy, and every scientific decision in it. AI assistance
+(Claude) was used for implementation and debugging: writing R code against that design,
+diagnosing failures, and drafting documentation.
+
+The scientific claims in this repository do not rest on that assistance. Every one of them is
+checked empirically by the suite in `validation/`, which reports the actual numbers each test
+produces rather than a pass/fail flag, and the checks in `dev/`, which record the evidence behind
+specific design decisions. Several of those tests exist because they caught real errors during
+development, including a confounded inbreeding-depression regression, two `detectRUNS`
+misconfigurations, and three reproducibility bugs. Where a result is weaker than it looks, the
+Limitations section says so directly.
+
 ## How to cite
 
 If you use this pipeline or its results, please cite it as:
