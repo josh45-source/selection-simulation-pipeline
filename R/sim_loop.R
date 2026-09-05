@@ -64,7 +64,7 @@ run_replicate <- function(config, selection_fraction, replicate_id, rng_stream,
 
       summary_rows[[gen]] <- data.frame(
         generation = gen,
-        va = compute_va(pop),
+        va = compute_va(pop, SP),
         mean_gv = meanG(pop)
       )
 

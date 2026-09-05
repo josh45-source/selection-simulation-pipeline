@@ -7,12 +7,23 @@
 
 library(AlphaSimR)
 
-compute_va <- function(pop) {
-  # varG() returns a Trait x Trait var-covar matrix (with dimnames like "Trait1") even for a
+# Additive genetic variance. Uses varA(), not varG(): for the purely additive traits this
+# pipeline runs (SP$addTraitA) the two are numerically identical -- verified equal to within
+# floating-point error across 100 generations of selection and drift -- so this returns exactly
+# what varG() did and no reported number changes. They diverge the moment a trait carries
+# dominance or epistasis, where varG() is total genetic variance and varA() is the additive
+# component this column claims to be. validation/test_inbreeding_depression.R already builds an
+# addTraitAD population (it does not call this function), and PROPOSED_EXTENSIONS.md item 1
+# proposes dominance in the main pipeline, so the wrong one here is a latent bug rather than a
+# hypothetical.
+#
+# varA() needs the SimParam; varG() did not. That is the only reason this takes a second argument.
+compute_va <- function(pop, simParam) {
+  # varA() returns a Trait x Trait var-covar matrix (with dimnames like "Trait1") even for a
   # single trait -- strip that down to a plain unnamed scalar so it doesn't leak AlphaSimR's
   # internal trait naming into the Parquet schema (data.frame(va = <named matrix>) would otherwise
   # name the column after the matrix's own dimname, not the "va" argument name).
-  as.numeric(varG(pop))[1]
+  as.numeric(varA(pop, simParam = simParam))[1]
 }
 
 # geno: individuals x sites matrix, values in {0,1,2} (e.g. from pullQtlGeno/pullSnpGeno)
