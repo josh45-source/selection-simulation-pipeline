@@ -85,12 +85,25 @@ docker run --rm --user "$(id -u):$(id -g)" selection:latest validation/test_froh
 
 Swap in any of `test_neutral_heterozygosity.R`, `test_breeders_equation.R`,
 `test_replicate_independence.R`, `test_resume_equals_uninterrupted.R`, or
-`test_inbreeding_depression.R`. Each one prints the actual numbers it produced, not just a
-pass/fail line: realized versus nominal effective population size, where the breeder's equation
-starts overpredicting, the correlation between F_ROH and pedigree F, and the inbreeding
-depression slope. `dev/` holds the scratch scripts that found and diagnosed the bugs documented
+`test_inbreeding_depression.R`.
+
+Each one prints the actual numbers it produced, not just a pass/fail line: realized versus
+nominal effective population size, where the breeder's equation starts overpredicting, the
+correlation between F_ROH and pedigree F, and the inbreeding depression slope. `dev/` holds the scratch scripts that found and diagnosed the bugs documented
 below; `dev/README.md` explains which ones are load-bearing evidence and which were one-off
 debugging.
+
+Run them this way, against the image's own baked-in code and library, rather than from a mounted
+host path. `test_resume_equals_uninterrupted.R` in particular launches a subprocess without
+`--vanilla`, so with the repository mounted over the working directory it activates renv against
+the host library instead of the image's and fails with a misleading missing-`result.rds` error;
+its header comment explains this and gives the overlay command to use if you need to test modified
+sources.
+
+One expected flake: the pure-additive arm of `test_inbreeding_depression.R` is a negative control
+asserting a non-significant slope, so at α = 0.05 it fails by chance roughly 5% of the time, and
+no seed pins it because founders differ every run (see Limitations). A single failure there is
+expected behaviour, not a defect -- re-run it.
 
 ## Data model
 
